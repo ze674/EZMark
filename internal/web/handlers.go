@@ -73,7 +73,7 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		"Title": "Главная",
 	}
 
-	s.render(w, "layout.html", data)
+	s.render(w, "home", data)
 }
 
 // handleTasksList обрабатывает запрос на список заданий
@@ -111,7 +111,7 @@ func (s *Server) handleTasksList(w http.ResponseWriter, r *http.Request) {
 		"Tasks": tasks,
 	}
 
-	s.render(w, "layout.html", data)
+	s.render(w, "tasks", data)
 }
 
 // handleTasksActions обрабатывает действия с заданиями
@@ -199,7 +199,7 @@ func (s *Server) handleTaskDetails(w http.ResponseWriter, r *http.Request, task 
 		"PreviewCodes": previewCodes,
 	}
 
-	s.render(w, "layout.html", data)
+	s.render(w, "task_details", data)
 }
 
 // handleTaskStart обрабатывает начало обработки задания
@@ -219,8 +219,12 @@ func (s *Server) handleTaskStart(w http.ResponseWriter, r *http.Request, task *m
 }
 
 // render рендерит шаблон с данными
-func (s *Server) render(w http.ResponseWriter, tmpl string, data map[string]interface{}) {
-	err := s.templates.ExecuteTemplate(w, tmpl, data)
+func (s *Server) render(w http.ResponseWriter, content string, data map[string]interface{}) {
+	// Указываем, какой контент-шаблон использовать
+	data["ContentTemplate"] = content
+
+	// Всегда рендерим layout.html, который включает нужный контент-шаблон
+	err := s.templates.ExecuteTemplate(w, "layout.html", data)
 	if err != nil {
 		log.Printf("Ошибка при рендеринге шаблона: %v", err)
 		http.Error(w, "Ошибка сервера", http.StatusInternalServerError)

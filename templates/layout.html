@@ -21,7 +21,17 @@
 
 <main class="container">
     <h2>{{.Title}}</h2>
-    {{template "content" .}}
+
+    <!-- Выбираем нужный шаблон контента -->
+    {{if eq .ContentTemplate "home"}}
+        {{template "home_content" .}}
+    {{else if eq .ContentTemplate "tasks"}}
+        {{template "tasks_content" .}}
+    {{else if eq .ContentTemplate "task_details"}}
+        {{template "task_details_content" .}}
+    {{else}}
+        <div class="error">Шаблон не найден</div>
+    {{end}}
 </main>
 
 <footer>
