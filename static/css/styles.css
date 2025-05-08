@@ -1,0 +1,190 @@
+/* Базовые стили */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f4f4f4;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* Заголовок */
+header {
+    background-color: #3498db;
+    color: white;
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    display: inline-block;
+    margin-right: 2rem;
+}
+
+header nav {
+    display: inline-block;
+}
+
+header nav ul {
+    list-style: none;
+}
+
+header nav ul li {
+    display: inline-block;
+    margin-right: 1rem;
+}
+
+header nav ul li a {
+    color: white;
+    text-decoration: none;
+}
+
+header nav ul li a:hover {
+    text-decoration: underline;
+}
+
+/* Основной контент */
+main {
+    min-height: calc(100vh - 140px);
+    padding-bottom: 2rem;
+}
+
+main h2 {
+    margin-bottom: 1.5rem;
+}
+
+/* Таблицы */
+.tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.tasks-table thead {
+    background-color: #3498db;
+    color: white;
+}
+
+.tasks-table th,
+.tasks-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.tasks-table tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* Кнопки */
+.btn {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    margin-right: 0.5rem;
+    text-decoration: none;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-view {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-start {
+    background-color: #2ecc71;
+    color: white;
+}
+
+.btn-primary {
+    background-color: #3498db;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+}
+
+.btn-secondary {
+    background-color: #95a5a6;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+}
+
+/* Информация о задании */
+.task-details {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.task-info table {
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+.task-info th {
+    width: 30%;
+    text-align: left;
+    padding: 0.5rem;
+}
+
+.task-info td {
+    width: 70%;
+    padding: 0.5rem;
+}
+
+.task-actions {
+    margin: 1.5rem 0;
+}
+
+.codes-preview {
+    margin-top: 2rem;
+}
+
+.codes-preview ul {
+    list-style: none;
+    background-color: #f9f9f9;
+    padding: 1rem;
+    border-radius: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.codes-preview li {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #eee;
+    font-family: monospace;
+}
+
+/* Сообщения */
+.no-tasks {
+    padding: 2rem;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    text-align: center;
+}
+
+/* Футер */
+footer {
+    background-color: #34495e;
+    color: white;
+    text-align: center;
+    padding: 1rem 0;
+    margin-top: 2rem;
+}

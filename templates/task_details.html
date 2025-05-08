@@ -1,0 +1,49 @@
+{{define "content"}}
+    <div class="task-details">
+        <div class="task-info">
+            <h3>Информация о задании</h3>
+            <table>
+                <tr>
+                    <th>ID документа:</th>
+                    <td>{{.Task.ID}}</td>
+                </tr>
+                <tr>
+                    <th>GTIN:</th>
+                    <td>{{.Task.GTIN}}</td>
+                </tr>
+                <tr>
+                    <th>Дата:</th>
+                    <td>{{.Task.Date}}</td>
+                </tr>
+                <tr>
+                    <th>Номер партии:</th>
+                    <td>{{.Task.BatchNumber}}</td>
+                </tr>
+                <tr>
+                    <th>Количество кодов:</th>
+                    <td>{{.Task.TotalCodes}}</td>
+                </tr>
+                <tr>
+                    <th>Статус:</th>
+                    <td>{{.Task.Status}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="task-actions">
+            <a href="/tasks/{{.Task.ID}}/start" class="btn btn-primary">Начать обработку</a>
+            <a href="/tasks" class="btn btn-secondary">Назад к списку</a>
+        </div>
+
+        {{if .Codes}}
+            <div class="codes-preview">
+                <h3>Примеры кодов (первые 10)</h3>
+                <ul>
+                    {{range .PreviewCodes}}
+                        <li>{{.Value}}</li>
+                    {{end}}
+                </ul>
+            </div>
+        {{end}}
+    </div>
+{{end}}

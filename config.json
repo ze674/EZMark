@@ -1,0 +1,10 @@
+{
+  "incoming_dir": "data\\incoming",
+  "processing_dir": "data\\processing",
+  "outgoing_dir": "data\\outgoing",
+  "archive_dir": "data\\archive",
+  "logs_dir": "data\\logs",
+  "server_port": "8080",
+  "scanner_address": "127.0.0.1:2001",
+  "scan_command": " "
+}
