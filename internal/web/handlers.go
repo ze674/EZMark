@@ -7,6 +7,8 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -23,9 +25,10 @@ type TaskViewModel struct {
 
 // Server представляет веб-сервер
 type Server struct {
-	config     config.Config
-	templates  *template.Template
-	dirScanner *filemanager.DirectoryScanner
+	config       config.Config
+	templates    *template.Template
+	dirScanner   *filemanager.DirectoryScanner
+	activeTaskID string // Добавляем ID активного задания
 }
 
 // NewServer создает новый экземпляр сервера
@@ -37,12 +40,13 @@ func NewServer(cfg config.Config) (*Server, error) {
 	}
 
 	// Создаем сканер директории
-	scanner := filemanager.NewDirectoryScanner(cfg.IncomingDir, cfg.ProcessingDir)
+	dirScanner := filemanager.NewDirectoryScanner(cfg.IncomingDir, cfg.ProcessingDir)
 
 	return &Server{
-		config:     cfg,
-		templates:  tmpl,
-		dirScanner: scanner,
+		config:       cfg,
+		templates:    tmpl,
+		dirScanner:   dirScanner,
+		activeTaskID: "", // Инициализируем пустой строкой
 	}, nil
 }
 
@@ -52,6 +56,8 @@ func (s *Server) Start() error {
 	http.HandleFunc("/", s.handleHome)
 	http.HandleFunc("/tasks", s.handleTasksList)
 	http.HandleFunc("/tasks/", s.handleTasksActions)
+	http.HandleFunc("/active-task", s.handleActiveTask)
+	http.HandleFunc("/active-task/finish", s.handleFinishTask)
 
 	// Статические файлы
 	fs := http.FileServer(http.Dir("static"))
@@ -213,9 +219,11 @@ func (s *Server) handleTaskStart(w http.ResponseWriter, r *http.Request, task *m
 
 	log.Printf("Файл перемещен для обработки: %s -> %s", filePath, newPath)
 
-	// Пока что просто перенаправляем обратно на список заданий
-	// В дальнейшем здесь будет логика начала обработки
-	http.Redirect(w, r, "/tasks", http.StatusSeeOther)
+	// Устанавливаем активное задание
+	s.activeTaskID = task.ID
+
+	// Перенаправляем на страницу активного задания
+	http.Redirect(w, r, "/active-task", http.StatusSeeOther)
 }
 
 // render рендерит шаблон с данными
@@ -229,4 +237,121 @@ func (s *Server) render(w http.ResponseWriter, content string, data map[string]i
 		log.Printf("Ошибка при рендеринге шаблона: %v", err)
 		http.Error(w, "Ошибка сервера", http.StatusInternalServerError)
 	}
+}
+
+// handleActiveTask обрабатывает запрос на страницу активного задания
+func (s *Server) handleActiveTask(w http.ResponseWriter, r *http.Request) {
+	// Проверяем, есть ли активное задание
+	if s.activeTaskID == "" {
+		http.Redirect(w, r, "/tasks", http.StatusSeeOther)
+		return
+	}
+
+	// Ищем активное задание в директории processing
+	processingFiles, err := os.ReadDir(s.config.ProcessingDir)
+	if err != nil {
+		http.Error(w, "Ошибка при чтении директории обработки", http.StatusInternalServerError)
+		return
+	}
+
+	var taskFilePath string
+	for _, file := range processingFiles {
+		if file.IsDir() {
+			continue
+		}
+
+		// Проверяем, что это файл OUT_MARK_*.xml
+		fileName := file.Name()
+		if strings.HasPrefix(fileName, "OUT_MARK_") && strings.HasSuffix(fileName, ".xml") {
+			// Парсим файл для получения ID
+			filePath := filepath.Join(s.config.ProcessingDir, fileName)
+			tempTask, _, err := filemanager.ParseMarkFile(filePath)
+			if err != nil {
+				continue
+			}
+
+			if tempTask.ID == s.activeTaskID {
+				taskFilePath = filePath
+				break
+			}
+		}
+	}
+
+	if taskFilePath == "" {
+		// Активное задание не найдено в директории processing
+		s.activeTaskID = "" // Сбрасываем активное задание
+		http.Redirect(w, r, "/tasks", http.StatusSeeOther)
+		return
+	}
+
+	// Парсим файл для получения задания
+	task, _, err := filemanager.ParseMarkFile(taskFilePath)
+	if err != nil {
+		http.Error(w, "Ошибка при парсинге файла задания", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Title": "Активное задание",
+		"Task":  task,
+	}
+
+	s.render(w, "active_task", data)
+}
+
+// handleFinishTask обрабатывает запрос на завершение задания
+func (s *Server) handleFinishTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Проверяем, есть ли активное задание
+	if s.activeTaskID == "" {
+		http.Redirect(w, r, "/tasks", http.StatusSeeOther)
+		return
+	}
+
+	// Находим файл активного задания в директории processing
+	processingFiles, err := os.ReadDir(s.config.ProcessingDir)
+	if err != nil {
+		http.Error(w, "Ошибка при чтении директории обработки", http.StatusInternalServerError)
+		return
+	}
+
+	var taskFilePath string
+	for _, file := range processingFiles {
+		if file.IsDir() {
+			continue
+		}
+
+		// Проверяем, что это файл OUT_MARK_*.xml
+		fileName := file.Name()
+		if strings.HasPrefix(fileName, "OUT_MARK_") && strings.HasSuffix(fileName, ".xml") {
+			// Парсим файл для получения ID
+			filePath := filepath.Join(s.config.ProcessingDir, fileName)
+			tempTask, _, err := filemanager.ParseMarkFile(filePath)
+			if err != nil {
+				continue
+			}
+
+			if tempTask.ID == s.activeTaskID {
+				taskFilePath = filePath
+				break
+			}
+		}
+	}
+
+	if taskFilePath != "" {
+		// Перемещаем файл в архив
+		if err := filemanager.MoveToArchive(taskFilePath, s.config.ArchiveDir); err != nil {
+			http.Error(w, "Ошибка при архивации файла: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Сбрасываем активное задание
+	s.activeTaskID = ""
+
+	http.Redirect(w, r, "/tasks", http.StatusSeeOther)
 }

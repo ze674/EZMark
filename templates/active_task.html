@@ -1,0 +1,46 @@
+{{define "active_task_content"}}
+    <div class="active-task">
+        <div class="task-info">
+            <h3>Информация об активном задании</h3>
+            <table>
+                <tr>
+                    <th>ID документа:</th>
+                    <td>{{.Task.ID}}</td>
+                </tr>
+                <tr>
+                    <th>GTIN:</th>
+                    <td>{{.Task.GTIN}}</td>
+                </tr>
+                <tr>
+                    <th>Дата:</th>
+                    <td>{{.Task.Date}}</td>
+                </tr>
+                <tr>
+                    <th>Номер партии:</th>
+                    <td>{{.Task.BatchNumber}}</td>
+                </tr>
+                <tr>
+                    <th>Количество кодов:</th>
+                    <td>{{.Task.TotalCodes}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="task-actions">
+            <h3>Управление заданием</h3>
+            <div class="action-buttons">
+                <a href="#" class="btn btn-primary">Начать сканирование</a>
+                <a href="#" class="btn btn-secondary">Остановить сканирование</a>
+                <form method="post" action="/active-task/finish">
+                    <button type="submit" class="btn btn-success">Завершить задание</button>
+                </form>
+                <a href="/tasks" class="btn btn-link">Назад к списку</a>
+            </div>
+        </div>
+
+        <div class="placeholder-info">
+            <h3>Информация</h3>
+            <p>В будущих версиях здесь будет отображаться статистика сканирования и результаты.</p>
+        </div>
+    </div>
+{{end}}
