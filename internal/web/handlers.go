@@ -10,6 +10,8 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -61,6 +63,8 @@ func (s *Server) Start() error {
 	http.HandleFunc("/active-task", s.handleActiveTask)
 	http.HandleFunc("/scan-code", s.handleScanCode)
 	http.HandleFunc("/complete-task", s.handleCompleteTask)
+	http.HandleFunc("/incoming-files", s.handleIncomingFiles) // Новый маршрут
+	http.HandleFunc("/tasks/create", s.handleCreateTask)      // Новый маршрут
 
 	// Статические файлы
 	fs := http.FileServer(http.Dir("static"))
@@ -477,6 +481,125 @@ func (s *Server) handleCompleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Задание %s завершено, создан файл результатов: %s", activeTaskID, resultFilePath)
+
+	// Перенаправляем на список заданий
+	http.Redirect(w, r, "/tasks", http.StatusSeeOther)
+}
+
+// handleIncomingFiles обрабатывает страницу со списком входящих файлов
+func (s *Server) handleIncomingFiles(w http.ResponseWriter, r *http.Request) {
+	// Получаем список файлов только при запросе страницы
+	files, err := s.dirScanner.ListMarkFiles()
+	if err != nil {
+		http.Error(w, "Ошибка при получении списка файлов", http.StatusInternalServerError)
+		return
+	}
+
+	// Преобразуем файлы в модели для отображения
+	var incomingFiles []models.IncomingFile
+	for _, filePath := range files {
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			log.Printf("Ошибка при получении информации о файле %s: %v", filePath, err)
+			continue
+		}
+
+		task, _, err := filemanager.ParseMarkFile(filePath)
+		if err != nil {
+			log.Printf("Ошибка при парсинге файла %s: %v", filePath, err)
+			continue
+		}
+
+		// Создаем модель входящего файла
+		incomingFile := models.NewIncomingFile(
+			filepath.Base(filePath),
+			filePath,
+			task.GTIN,
+			task.Date,
+			task.BatchNumber,
+			task.TotalCodes,
+			fileInfo.Size(),
+			fileInfo.ModTime(),
+		)
+
+		// Добавляем файл в список
+		incomingFiles = append(incomingFiles, *incomingFile)
+	}
+
+	// Проверяем, запрос на частичное обновление или на полную страницу
+	isPartialRequest := r.Header.Get("HX-Request") == "true"
+
+	if isPartialRequest {
+		// Возвращаем только содержимое списка файлов
+		err := pages.IncomingFilesContent(incomingFiles).Render(r.Context(), w)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	} else {
+		// Рендерим полную страницу
+		err := pages.IncomingFiles(incomingFiles).Render(r.Context(), w)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+}
+
+// handleCreateTask создает задание из входящего файла
+func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Получаем данные формы
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Ошибка при парсинге формы", http.StatusBadRequest)
+		return
+	}
+
+	filePath := r.FormValue("file_path")
+	if filePath == "" {
+		http.Error(w, "Путь к файлу не указан", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем, существует ли файл
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		http.Error(w, "Файл не найден", http.StatusNotFound)
+		return
+	}
+
+	// Выполняем создание задания (используйте существующий код из handleTaskStart)
+	task, codes, err := filemanager.ParseMarkFile(filePath)
+	if err != nil {
+		http.Error(w, "Ошибка при парсинге файла: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Перемещаем файл в архив
+	archivePath, err := filemanager.MoveToArchive(filePath, s.config.ArchiveDir)
+	if err != nil {
+		http.Error(w, "Ошибка при архивации файла: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Обновляем путь к файлу
+	task.FilePath = archivePath
+	task.Status = models.TaskStatusNew
+
+	// Сохраняем задание в БД
+	if err := s.db.SaveTask(task); err != nil {
+		http.Error(w, "Ошибка при сохранении задания: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Сохраняем коды в БД
+	if err := s.db.SaveCodes(codes); err != nil {
+		http.Error(w, "Ошибка при сохранении кодов: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Задание %s создано из файла %s", task.ID, filePath)
 
 	// Перенаправляем на список заданий
 	http.Redirect(w, r, "/tasks", http.StatusSeeOther)

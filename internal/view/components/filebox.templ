@@ -1,0 +1,63 @@
+package components
+
+import (
+	"FileMarker/internal/models"
+	"fmt"
+	"time"
+)
+
+templ FileBox(file models.IncomingFile) {
+	<div class="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+		<div class="bg-blue-500 text-white px-4 py-2 font-medium truncate">
+			{file.FileName}
+		</div>
+		<div class="px-4 py-4 space-y-4">
+			<!-- GTIN и дата с улучшенными отступами -->
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<div class="text-sm font-medium text-gray-500 mb-1">GTIN</div>
+					<div class="font-medium">{file.GTIN}</div>
+				</div>
+				<div>
+					<div class="text-sm font-medium text-gray-500 mb-1">Дата</div>
+					<div class="font-medium">{file.Date}</div>
+				</div>
+			</div>
+
+			<!-- Партия и количество кодов с улучшенными отступами -->
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<div class="text-sm font-medium text-gray-500 mb-1">Партия</div>
+					<div class="font-medium">{file.BatchNumber}</div>
+				</div>
+				<div>
+					<div class="text-sm font-medium text-gray-500 mb-1">Кодов</div>
+					<div class="font-medium">{fmt.Sprintf("%d", file.TotalCodes)}</div>
+				</div>
+			</div>
+
+			<div class="text-sm text-gray-500">
+				Изменен {formatTime(file.ModTime)}
+			</div>
+
+			<!-- Очень заметная кнопка создания задания -->
+			<div class="border-t pt-4 mt-2">
+				<form action="/tasks/create" method="post">
+					<input type="hidden" name="file_path" value={file.FilePath} />
+					<button
+						type="submit"
+						style="width: 100%; background-color: #10b981; color: white; padding: 10px 16px; border-radius: 6px; font-weight: 500; transition: background-color 0.2s;"
+						onmouseover="this.style.backgroundColor='#059669';"
+						onmouseout="this.style.backgroundColor='#10b981';"
+					>
+						Создать задание
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+}
+
+func formatTime(t time.Time) string {
+	return t.Format("02.01.2006 15:04")
+}

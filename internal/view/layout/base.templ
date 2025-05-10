@@ -1,22 +1,23 @@
 package layout
 
-
 templ Base(title string) {
     <!DOCTYPE html>
     <html lang="ru">
     <head>
         <meta charset="UTF-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <title>{ title } - FileMarker</title>
+        <title>{title} - FileMarker</title>
         <link rel="stylesheet" href="/static/css/output.css"/>
         <script src="/static/js/htmx.min.js"></script>
         <script src="/static/js/app.js" defer></script>
     </head>
     <body class="bg-gray-100 min-h-screen flex flex-col">
         @Header()
-        <main class="container mx-auto px-4 py-8 flex-grow">
-            { children... }
+
+        <main class="container mx-auto px-6 py-6 flex-grow">
+            {children...}
         </main>
+
         @Footer()
     </body>
     </html>

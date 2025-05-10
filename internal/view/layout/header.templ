@@ -2,14 +2,15 @@ package layout
 
 templ Header() {
     <header class="bg-blue-500 text-white shadow-md">
-        <div class="container mx-auto px-4 py-4">
+        <div class="container mx-auto px-6 py-4">
             <div class="flex items-center">
-                <h1 class="text-2xl font-bold mr-8">FileMarker</h1>
+                <a href="/" class="text-2xl font-bold mr-8 text-white hover:text-blue-100 transition-colors">FileMarker</a>
                 <nav>
-                    <ul class="flex space-x-6">
-                        <li><a href="/" class="hover:text-blue-100 transition">Главная</a></li>
-                        <li><a href="/tasks" class="hover:text-blue-100 transition">Задания</a></li>
-                        <li><a href="/active-task" class="hover:text-blue-100 transition">Активное задание</a></li>
+                    <ul class="flex">
+                        <li class="mr-8"><a href="/" class="hover:text-blue-100 transition-colors py-2 px-3 inline-block">Главная</a></li>
+                        <li class="mr-8"><a href="/incoming-files" class="hover:text-blue-100 transition-colors py-2 px-3 inline-block">Входящие файлы</a></li>
+                        <li class="mr-8"><a href="/tasks" class="hover:text-blue-100 transition-colors py-2 px-3 inline-block">Задания</a></li>
+                        <li><a href="/active-task" class="hover:text-blue-100 transition-colors py-2 px-3 inline-block">Активное задание</a></li>
                     </ul>
                 </nav>
             </div>
