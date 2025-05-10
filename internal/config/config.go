@@ -9,11 +9,10 @@ import (
 // Config содержит настройки приложения
 type Config struct {
 	// Пути к директориям
-	IncomingDir   string `json:"incoming_dir"`
-	ProcessingDir string `json:"processing_dir"`
-	OutgoingDir   string `json:"outgoing_dir"`
-	ArchiveDir    string `json:"archive_dir"`
-	LogsDir       string `json:"logs_dir"`
+	IncomingDir string `json:"incoming_dir"`
+	OutgoingDir string `json:"outgoing_dir"`
+	ArchiveDir  string `json:"archive_dir"`
+	LogsDir     string `json:"logs_dir"`
 
 	// Настройки базы данных
 	DatabasePath string `json:"database_path"`
@@ -33,7 +32,6 @@ func DefaultConfig() Config {
 
 	return Config{
 		IncomingDir:    filepath.Join(baseDir, "incoming"),
-		ProcessingDir:  filepath.Join(baseDir, "processing"),
 		OutgoingDir:    filepath.Join(baseDir, "outgoing"),
 		ArchiveDir:     filepath.Join(baseDir, "archive"),
 		LogsDir:        filepath.Join(baseDir, "logs"),
@@ -52,7 +50,6 @@ func LoadConfig(path string) (Config, error) {
 
 		// Создаем директории, если не существуют
 		ensureDirectoryExists(defaultConfig.IncomingDir)
-		ensureDirectoryExists(defaultConfig.ProcessingDir)
 		ensureDirectoryExists(defaultConfig.OutgoingDir)
 		ensureDirectoryExists(defaultConfig.ArchiveDir)
 		ensureDirectoryExists(defaultConfig.LogsDir)
@@ -79,7 +76,6 @@ func LoadConfig(path string) (Config, error) {
 
 	// Создаем директории, если не существуют
 	ensureDirectoryExists(config.IncomingDir)
-	ensureDirectoryExists(config.ProcessingDir)
 	ensureDirectoryExists(config.OutgoingDir)
 	ensureDirectoryExists(config.ArchiveDir)
 	ensureDirectoryExists(config.LogsDir)

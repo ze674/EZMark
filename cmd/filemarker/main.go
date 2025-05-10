@@ -47,7 +47,6 @@ func main() {
 	log.Println("FileMarker запущен")
 	log.Printf("Используются следующие директории:")
 	log.Printf("  Входящие: %s", cfg.IncomingDir)
-	log.Printf("  Обработка: %s", cfg.ProcessingDir)
 	log.Printf("  Исходящие: %s", cfg.OutgoingDir)
 	log.Printf("  Архив: %s", cfg.ArchiveDir)
 

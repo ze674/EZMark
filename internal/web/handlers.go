@@ -41,7 +41,7 @@ func NewServer(cfg config.Config, db *database.DB) (*Server, error) {
 	}
 
 	// Создаем сканер директории
-	scanner := filemanager.NewDirectoryScanner(cfg.IncomingDir, cfg.ProcessingDir)
+	scanner := filemanager.NewDirectoryScanner(cfg.IncomingDir)
 
 	return &Server{
 		config:     cfg,
@@ -223,17 +223,17 @@ func (s *Server) render(w http.ResponseWriter, content string, data map[string]i
 	}
 }
 
-// Обновленная функция handleTaskStart для сохранения задания в БД
+// Обновленная функция handleTaskStart для перемещения файла сразу в архив
 func (s *Server) handleTaskStart(w http.ResponseWriter, r *http.Request, task *models.Task, filePath string) {
-	// Перемещаем файл из директории входящих в директорию обработки
-	newPath, err := filemanager.MoveToProcessing(filePath, s.config.ProcessingDir)
+	// Перемещаем файл из директории входящих сразу в директорию архива
+	archivePath, err := filemanager.MoveToArchive(filePath, s.config.ArchiveDir)
 	if err != nil {
-		http.Error(w, "Ошибка при перемещении файла: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Ошибка при архивации файла: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Обновляем путь к файлу
-	task.FilePath = newPath
+	task.FilePath = archivePath
 	task.Status = models.TaskStatusProcessing
 	task.ProcessedAt = time.Now()
 
@@ -244,7 +244,7 @@ func (s *Server) handleTaskStart(w http.ResponseWriter, r *http.Request, task *m
 	}
 
 	// Получаем коды из файла и сохраняем в БД
-	_, codes, err := filemanager.ParseMarkFile(newPath)
+	_, codes, err := filemanager.ParseMarkFile(archivePath)
 	if err != nil {
 		http.Error(w, "Ошибка при парсинге файла: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -260,13 +260,12 @@ func (s *Server) handleTaskStart(w http.ResponseWriter, r *http.Request, task *m
 		log.Printf("Ошибка при установке активного задания: %v", err)
 	}
 
-	log.Printf("Задание %s начато, файл перемещен: %s -> %s", task.ID, filePath, newPath)
+	log.Printf("Задание %s начато, файл архивирован: %s -> %s", task.ID, filePath, archivePath)
 
 	// Перенаправляем на страницу активного задания
 	http.Redirect(w, r, "/active-task", http.StatusSeeOther)
 }
 
-// handleActiveTask обрабатывает страницу с активным заданием
 // handleActiveTask обрабатывает страницу с активным заданием (обновление)
 func (s *Server) handleActiveTask(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID активного задания
@@ -434,7 +433,7 @@ func (s *Server) handleScanCode(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"success": true, "message": "Код успешно отсканирован"}`))
 }
 
-// handleCompleteTask обрабатывает завершение задания
+// Обновленная функция handleCompleteTask
 func (s *Server) handleCompleteTask(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -467,11 +466,6 @@ func (s *Server) handleCompleteTask(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Ошибка при создании файла результатов: "+err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	// Перемещаем исходный файл в архив
-	if err := filemanager.MoveToArchive(task.FilePath, s.config.ArchiveDir); err != nil {
-		log.Printf("Ошибка при перемещении файла в архив: %v", err)
 	}
 
 	// Обновляем статус задания

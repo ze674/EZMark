@@ -3,8 +3,10 @@ package filemanager
 import (
 	"FileMarker/internal/models"
 	"encoding/xml"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Обновленная структура MarkDocument для вашего упрощенного XML
@@ -61,10 +63,20 @@ func ParseMarkFile(filePath string) (*models.Task, []*models.Code, error) {
 	return task, codes, nil
 }
 
-// MoveToProcessing перемещает файл из incoming в processing
-func MoveToProcessing(filePath, processingDir string) (string, error) {
+// MoveToArchive перемещает файл в архивную директорию
+func MoveToArchive(filePath, archiveDir string) (string, error) {
 	fileName := filepath.Base(filePath)
-	destPath := filepath.Join(processingDir, fileName)
+	destPath := filepath.Join(archiveDir, fileName)
+
+	// Проверяем, существует ли файл с таким именем в архиве
+	if _, err := os.Stat(destPath); err == nil {
+		// Если файл уже существует, добавляем временную метку к имени
+		ext := filepath.Ext(fileName)
+		baseName := fileName[:len(fileName)-len(ext)]
+		timestamp := time.Now().Format("20060102-150405")
+		newFileName := fmt.Sprintf("%s_%s%s", baseName, timestamp, ext)
+		destPath = filepath.Join(archiveDir, newFileName)
+	}
 
 	// Копируем сначала файл
 	data, err := os.ReadFile(filePath)
@@ -82,27 +94,4 @@ func MoveToProcessing(filePath, processingDir string) (string, error) {
 	}
 
 	return destPath, nil
-}
-
-// MoveToArchive перемещает файл из processing в archive
-func MoveToArchive(filePath, archiveDir string) error {
-	fileName := filepath.Base(filePath)
-	destPath := filepath.Join(archiveDir, fileName)
-
-	// Копируем сначала файл
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(destPath, data, 0644); err != nil {
-		return err
-	}
-
-	// Удаляем исходный файл
-	if err := os.Remove(filePath); err != nil {
-		return err
-	}
-
-	return nil
 }

@@ -8,15 +8,13 @@ import (
 
 // DirectoryScanner отвечает за сканирование директории с входящими файлами
 type DirectoryScanner struct {
-	incomingDir   string
-	processingDir string
+	incomingDir string
 }
 
 // NewDirectoryScanner создает новый экземпляр сканера директории
-func NewDirectoryScanner(incomingDir, processingDir string) *DirectoryScanner {
+func NewDirectoryScanner(incomingDir string) *DirectoryScanner {
 	return &DirectoryScanner{
-		incomingDir:   incomingDir,
-		processingDir: processingDir,
+		incomingDir: incomingDir,
 	}
 }
 
