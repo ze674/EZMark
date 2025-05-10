@@ -1,0 +1,20 @@
+// components/button.templ
+package components
+
+templ Button(text string, primary bool, attrs templ.Attributes) {
+    if primary {
+        <button
+            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition duration-150"
+            {attrs...}
+        >
+            {text}
+        </button>
+    } else {
+        <button
+            class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded transition duration-150"
+            {attrs...}
+        >
+            {text}
+        </button>
+    }
+}

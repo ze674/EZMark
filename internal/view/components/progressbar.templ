@@ -1,0 +1,14 @@
+// components/progressbar.templ
+package components
+
+import "fmt"
+
+templ ProgressBar(progress int) {
+    <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
+        <div
+            class="bg-blue-500 h-4 rounded-full transition-all duration-300 ease-in-out"
+            style={fmt.Sprintf("width: %d%%", progress)}
+        ></div>
+    </div>
+    <div class="text-sm text-gray-600 text-right">{fmt.Sprintf("%d%%", progress)}</div>
+}

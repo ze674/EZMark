@@ -1,0 +1,15 @@
+package pages
+
+import "FileMarker/internal/view/layout"
+
+templ Home() {
+    @layout.Base("Главная") {
+        <div class="max-w-xl mx-auto bg-white p-8 rounded-lg shadow">
+            <h2 class="text-2xl font-bold mb-6">Главная</h2>
+            <div class="welcome">
+                <p class="mb-4">Добро пожаловать в FileMarker - систему обработки файлов маркировки.</p>
+                <p>Для начала работы перейдите в раздел <a href="/tasks" class="text-blue-500 hover:underline">Задания</a>.</p>
+            </div>
+        </div>
+    }
+}

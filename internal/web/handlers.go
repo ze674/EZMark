@@ -5,6 +5,7 @@ import (
 	"FileMarker/internal/database"
 	"FileMarker/internal/filemanager"
 	"FileMarker/internal/models"
+	"FileMarker/internal/view/pages"
 	"encoding/json"
 	"html/template"
 	"log"
@@ -70,18 +71,14 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(":"+s.config.ServerPort, nil)
 }
 
-// handleHome обрабатывает запрос на главную страницу
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
 
-	data := map[string]interface{}{
-		"Title": "Главная",
-	}
-
-	s.render(w, "home", data)
+	homePage := pages.Home()
+	homePage.Render(r.Context(), w)
 }
 
 // handleTasksList обрабатывает запрос на список заданий
