@@ -3,6 +3,7 @@
   "processing_dir": "data\\processing",
   "outgoing_dir": "data\\outgoing",
   "archive_dir": "data\\archive",
+  "database_path": "data\\filemarker.db",
   "logs_dir": "data\\logs",
   "server_port": "8080",
   "scanner_address": "127.0.0.1:2001",

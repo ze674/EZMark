@@ -1,3 +1,4 @@
+<!-- templates/layout.html (обновление) -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -14,12 +15,12 @@
             <ul>
                 <li><a href="/">Главная</a></li>
                 <li><a href="/tasks">Задания</a></li>
+                <li><a href="/active-task">Активное задание</a></li>
             </ul>
         </nav>
     </div>
 </header>
 
-<!-- В файле templates/layout.html -->
 <main class="container">
     <h2>{{.Title}}</h2>
 
@@ -30,10 +31,10 @@
         {{template "tasks_content" .}}
     {{else if eq .ContentTemplate "task_details"}}
         {{template "task_details_content" .}}
-    {{else if eq .ContentTemplate "active_task"}}  <!-- Добавляем этот блок -->
-    {{template "active_task_content" .}}
+    {{else if eq .ContentTemplate "active_task"}}
+        {{template "active_task_content" .}}
     {{else}}
-        <div class="error">Шаблон не найден: {{.ContentTemplate}}</div>
+        <div class="error">Шаблон не найден</div>
     {{end}}
 </main>
 

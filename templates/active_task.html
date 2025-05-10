@@ -1,46 +1,94 @@
+<!-- templates/active_task.html -->
 {{define "active_task_content"}}
     <div class="active-task">
-        <div class="task-info">
-            <h3>Информация об активном задании</h3>
-            <table>
-                <tr>
-                    <th>ID документа:</th>
-                    <td>{{.Task.ID}}</td>
-                </tr>
-                <tr>
-                    <th>GTIN:</th>
-                    <td>{{.Task.GTIN}}</td>
-                </tr>
-                <tr>
-                    <th>Дата:</th>
-                    <td>{{.Task.Date}}</td>
-                </tr>
-                <tr>
-                    <th>Номер партии:</th>
-                    <td>{{.Task.BatchNumber}}</td>
-                </tr>
-                <tr>
-                    <th>Количество кодов:</th>
-                    <td>{{.Task.TotalCodes}}</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="task-actions">
-            <h3>Управление заданием</h3>
-            <div class="action-buttons">
-                <a href="#" class="btn btn-primary">Начать сканирование</a>
-                <a href="#" class="btn btn-secondary">Остановить сканирование</a>
-                <form method="post" action="/active-task/finish">
-                    <button type="submit" class="btn btn-success">Завершить задание</button>
-                </form>
-                <a href="/tasks" class="btn btn-link">Назад к списку</a>
+        <div class="task-header">
+            <h3>Обработка задания: {{.Task.ID}}</h3>
+            <div class="task-info">
+                <p><strong>GTIN:</strong> {{.Task.GTIN}}</p>
+                <p><strong>Дата:</strong> {{.Task.Date}}</p>
+                <p><strong>Партия:</strong> {{.Task.BatchNumber}}</p>
             </div>
         </div>
 
-        <div class="placeholder-info">
-            <h3>Информация</h3>
-            <p>В будущих версиях здесь будет отображаться статистика сканирования и результаты.</p>
+        <div class="task-progress">
+            <div class="progress-bar">
+                <div class="progress" style="width: {{.Progress}}%"></div>
+            </div>
+            <div class="progress-info">
+                <p>Отсканировано: <strong>{{.ScannedCodes}}</strong> из <strong>{{.TotalCodes}}</strong> ({{.Progress}}%)</p>
+                <p>Валидных кодов: <strong>{{.ValidCodes}}</strong></p>
+            </div>
+        </div>
+
+        <div class="scan-form">
+            <h3>Сканирование кодов</h3>
+            <form id="scan-form" action="/scan-code" method="post">
+                <div class="form-group">
+                    <input type="text" id="code-input" name="code" placeholder="Отсканируйте код..." autocomplete="off" autofocus>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </div>
+                <div id="scan-result" class="scan-result hidden"></div>
+            </form>
+        </div>
+
+        <div class="task-actions">
+            <form id="complete-form" action="/complete-task" method="post">
+                <button type="submit" class="btn btn-finish">Завершить обработку</button>
+                <a href="/tasks" class="btn btn-secondary">К списку заданий</a>
+            </form>
         </div>
     </div>
+
+    <script>
+        // JavaScript для асинхронного сканирования кодов
+        document.addEventListener('DOMContentLoaded', function() {
+            const scanForm = document.getElementById('scan-form');
+            const codeInput = document.getElementById('code-input');
+            const scanResult = document.getElementById('scan-result');
+
+            scanForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const codeValue = codeInput.value.trim();
+                if (!codeValue) return;
+
+                // Отправляем AJAX-запрос
+                fetch('/scan-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'code=' + encodeURIComponent(codeValue)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.text().then(text => { throw new Error(text) });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Успешно отсканировано
+                        scanResult.className = 'scan-result success';
+                        scanResult.textContent = data.message;
+                        codeInput.value = '';
+                        codeInput.focus();
+
+                        // Обновляем страницу через 1 секунду, чтобы показать прогресс
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    })
+                    .catch(error => {
+                        // Ошибка сканирования
+                        scanResult.className = 'scan-result error';
+                        scanResult.textContent = error.message;
+                        codeInput.value = '';
+                        codeInput.focus();
+                    });
+            });
+
+            // Фокус на поле ввода при загрузке страницы
+            codeInput.focus();
+        });
+    </script>
 {{end}}

@@ -249,3 +249,128 @@ footer {
     border-radius: 5px;
     margin-top: 2rem;
 }
+/* static/css/styles.css (дополнение) */
+
+/* Активное задание */
+.active-task {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.task-header {
+    margin-bottom: 1.5rem;
+}
+
+.task-header h3 {
+    margin-bottom: 0.5rem;
+}
+
+.task-info {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.task-info p {
+    margin-right: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Прогресс-бар */
+.task-progress {
+    margin-bottom: 2rem;
+}
+
+.progress-bar {
+    height: 20px;
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress {
+    height: 100%;
+    background-color: #3498db;
+    transition: width 0.3s ease;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Форма сканирования */
+.scan-form {
+    margin-bottom: 2rem;
+}
+
+.scan-form h3 {
+    margin-bottom: 1rem;
+}
+
+.form-group {
+    display: flex;
+}
+
+.form-group input {
+    flex-grow: 1;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px 0 0 4px;
+    font-size: 1rem;
+}
+
+.form-group button {
+    border-radius: 0 4px 4px 0;
+}
+
+/* Результат сканирования */
+.scan-result {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 4px;
+}
+
+.scan-result.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.scan-result.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Кнопки для задания */
+.btn-finish {
+    background-color: #e74c3c;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .form-group {
+        flex-direction: column;
+    }
+
+    .form-group input {
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-group button {
+        border-radius: 4px;
+    }
+
+    .task-info {
+        flex-direction: column;
+    }
+}

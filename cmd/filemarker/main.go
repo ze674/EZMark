@@ -2,6 +2,7 @@ package main
 
 import (
 	"FileMarker/internal/config"
+	"FileMarker/internal/database"
 	"FileMarker/internal/web"
 	"flag"
 	"log"
@@ -29,6 +30,20 @@ func main() {
 		defer logFile.Close()
 	}
 
+	// Инициализируем базу данных
+	db, err := database.New(cfg.DatabasePath)
+	if err != nil {
+		log.Fatalf("Ошибка при подключении к базе данных: %v", err)
+	}
+	defer db.Close()
+
+	// Создаем/обновляем таблицы
+	if err := db.Initialize(); err != nil {
+		log.Fatalf("Ошибка при инициализации базы данных: %v", err)
+	}
+
+	log.Println("База данных успешно инициализирована")
+
 	log.Println("FileMarker запущен")
 	log.Printf("Используются следующие директории:")
 	log.Printf("  Входящие: %s", cfg.IncomingDir)
@@ -37,7 +52,7 @@ func main() {
 	log.Printf("  Архив: %s", cfg.ArchiveDir)
 
 	// Создаем и запускаем веб-сервер
-	server, err := web.NewServer(cfg)
+	server, err := web.NewServer(cfg, db)
 	if err != nil {
 		log.Fatalf("Ошибка создания сервера: %v", err)
 	}

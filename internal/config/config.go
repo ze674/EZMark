@@ -15,6 +15,9 @@ type Config struct {
 	ArchiveDir    string `json:"archive_dir"`
 	LogsDir       string `json:"logs_dir"`
 
+	// Настройки базы данных
+	DatabasePath string `json:"database_path"`
+
 	// Настройки веб-сервера
 	ServerPort string `json:"server_port"`
 
@@ -34,6 +37,7 @@ func DefaultConfig() Config {
 		OutgoingDir:    filepath.Join(baseDir, "outgoing"),
 		ArchiveDir:     filepath.Join(baseDir, "archive"),
 		LogsDir:        filepath.Join(baseDir, "logs"),
+		DatabasePath:   filepath.Join(baseDir, "filemarker.db"),
 		ServerPort:     "8080",
 		ScannerAddress: "127.0.0.1:2001",
 		ScanCommand:    " ", // Пробел как простейшая команда сканирования

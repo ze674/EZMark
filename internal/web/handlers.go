@@ -2,14 +2,15 @@ package web
 
 import (
 	"FileMarker/internal/config"
+	"FileMarker/internal/database"
 	"FileMarker/internal/filemanager"
 	"FileMarker/internal/models"
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
+	"time"
 )
 
 // TaskViewModel представляет модель представления для задания
@@ -25,14 +26,14 @@ type TaskViewModel struct {
 
 // Server представляет веб-сервер
 type Server struct {
-	config       config.Config
-	templates    *template.Template
-	dirScanner   *filemanager.DirectoryScanner
-	activeTaskID string // Добавляем ID активного задания
+	config     config.Config
+	templates  *template.Template
+	dirScanner *filemanager.DirectoryScanner
+	db         *database.DB
 }
 
 // NewServer создает новый экземпляр сервера
-func NewServer(cfg config.Config) (*Server, error) {
+func NewServer(cfg config.Config, db *database.DB) (*Server, error) {
 	// Загружаем шаблоны
 	tmpl, err := template.ParseGlob("templates/*.html")
 	if err != nil {
@@ -40,13 +41,13 @@ func NewServer(cfg config.Config) (*Server, error) {
 	}
 
 	// Создаем сканер директории
-	dirScanner := filemanager.NewDirectoryScanner(cfg.IncomingDir, cfg.ProcessingDir)
+	scanner := filemanager.NewDirectoryScanner(cfg.IncomingDir, cfg.ProcessingDir)
 
 	return &Server{
-		config:       cfg,
-		templates:    tmpl,
-		dirScanner:   dirScanner,
-		activeTaskID: "", // Инициализируем пустой строкой
+		config:     cfg,
+		templates:  tmpl,
+		dirScanner: scanner,
+		db:         db,
 	}, nil
 }
 
@@ -57,7 +58,8 @@ func (s *Server) Start() error {
 	http.HandleFunc("/tasks", s.handleTasksList)
 	http.HandleFunc("/tasks/", s.handleTasksActions)
 	http.HandleFunc("/active-task", s.handleActiveTask)
-	http.HandleFunc("/active-task/finish", s.handleFinishTask)
+	http.HandleFunc("/scan-code", s.handleScanCode)
+	http.HandleFunc("/complete-task", s.handleCompleteTask)
 
 	// Статические файлы
 	fs := http.FileServer(http.Dir("static"))
@@ -208,24 +210,6 @@ func (s *Server) handleTaskDetails(w http.ResponseWriter, r *http.Request, task 
 	s.render(w, "task_details", data)
 }
 
-// handleTaskStart обрабатывает начало обработки задания
-func (s *Server) handleTaskStart(w http.ResponseWriter, r *http.Request, task *models.Task, filePath string) {
-	// Перемещаем файл из директории входящих в директорию обработки
-	newPath, err := filemanager.MoveToProcessing(filePath, s.config.ProcessingDir)
-	if err != nil {
-		http.Error(w, "Ошибка при перемещении файла: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("Файл перемещен для обработки: %s -> %s", filePath, newPath)
-
-	// Устанавливаем активное задание
-	s.activeTaskID = task.ID
-
-	// Перенаправляем на страницу активного задания
-	http.Redirect(w, r, "/active-task", http.StatusSeeOther)
-}
-
 // render рендерит шаблон с данными
 func (s *Server) render(w http.ResponseWriter, content string, data map[string]interface{}) {
 	// Указываем, какой контент-шаблон использовать
@@ -239,119 +223,270 @@ func (s *Server) render(w http.ResponseWriter, content string, data map[string]i
 	}
 }
 
-// handleActiveTask обрабатывает запрос на страницу активного задания
+// Обновленная функция handleTaskStart для сохранения задания в БД
+func (s *Server) handleTaskStart(w http.ResponseWriter, r *http.Request, task *models.Task, filePath string) {
+	// Перемещаем файл из директории входящих в директорию обработки
+	newPath, err := filemanager.MoveToProcessing(filePath, s.config.ProcessingDir)
+	if err != nil {
+		http.Error(w, "Ошибка при перемещении файла: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Обновляем путь к файлу
+	task.FilePath = newPath
+	task.Status = models.TaskStatusProcessing
+	task.ProcessedAt = time.Now()
+
+	// Сохраняем задание в БД
+	if err := s.db.SaveTask(task); err != nil {
+		http.Error(w, "Ошибка при сохранении задания: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Получаем коды из файла и сохраняем в БД
+	_, codes, err := filemanager.ParseMarkFile(newPath)
+	if err != nil {
+		http.Error(w, "Ошибка при парсинге файла: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.db.SaveCodes(codes); err != nil {
+		http.Error(w, "Ошибка при сохранении кодов: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Устанавливаем это задание как активное
+	if err := s.db.SetActiveTask(task.ID); err != nil {
+		log.Printf("Ошибка при установке активного задания: %v", err)
+	}
+
+	log.Printf("Задание %s начато, файл перемещен: %s -> %s", task.ID, filePath, newPath)
+
+	// Перенаправляем на страницу активного задания
+	http.Redirect(w, r, "/active-task", http.StatusSeeOther)
+}
+
+// handleActiveTask обрабатывает страницу с активным заданием
+// handleActiveTask обрабатывает страницу с активным заданием (обновление)
 func (s *Server) handleActiveTask(w http.ResponseWriter, r *http.Request) {
-	// Проверяем, есть ли активное задание
-	if s.activeTaskID == "" {
+	// Получаем ID активного задания
+	activeTaskID, err := s.db.GetActiveTask()
+	if err != nil || activeTaskID == "" {
+		// Если запрашивается JSON-формат, возвращаем ошибку в JSON
+		if r.URL.Query().Get("format") == "json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"error": "Нет активного задания"}`))
+			return
+		}
+
+		// Иначе перенаправляем на список заданий
 		http.Redirect(w, r, "/tasks", http.StatusSeeOther)
 		return
 	}
 
-	// Ищем активное задание в директории processing
-	processingFiles, err := os.ReadDir(s.config.ProcessingDir)
+	// Получаем информацию о задании из БД
+	task, err := s.db.GetTaskByID(activeTaskID)
 	if err != nil {
-		http.Error(w, "Ошибка при чтении директории обработки", http.StatusInternalServerError)
-		return
-	}
-
-	var taskFilePath string
-	for _, file := range processingFiles {
-		if file.IsDir() {
-			continue
+		if r.URL.Query().Get("format") == "json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"error": "Ошибка при получении задания"}`))
+			return
 		}
 
-		// Проверяем, что это файл OUT_MARK_*.xml
-		fileName := file.Name()
-		if strings.HasPrefix(fileName, "OUT_MARK_") && strings.HasSuffix(fileName, ".xml") {
-			// Парсим файл для получения ID
-			filePath := filepath.Join(s.config.ProcessingDir, fileName)
-			tempTask, _, err := filemanager.ParseMarkFile(filePath)
-			if err != nil {
-				continue
-			}
+		http.Error(w, "Ошибка при получении задания: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-			if tempTask.ID == s.activeTaskID {
-				taskFilePath = filePath
-				break
+	// Получаем коды для этого задания
+	codes, err := s.db.GetCodesByTaskID(activeTaskID)
+	if err != nil {
+		if r.URL.Query().Get("format") == "json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"error": "Ошибка при получении кодов"}`))
+			return
+		}
+
+		http.Error(w, "Ошибка при получении кодов: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Считаем статистику
+	totalCodes := len(codes)
+	scannedCodes := 0
+	validCodes := 0
+
+	for _, code := range codes {
+		if code.Scanned {
+			scannedCodes++
+			if code.Valid {
+				validCodes++
 			}
 		}
 	}
 
-	if taskFilePath == "" {
-		// Активное задание не найдено в директории processing
-		s.activeTaskID = "" // Сбрасываем активное задание
-		http.Redirect(w, r, "/tasks", http.StatusSeeOther)
+	progress := 0
+	if totalCodes > 0 {
+		progress = int(float64(scannedCodes) / float64(totalCodes) * 100)
+	}
+
+	// Обновляем статистику в БД
+	s.db.UpdateTaskStatistics(activeTaskID)
+
+	// Если запрашивается JSON-формат, возвращаем данные в JSON
+	if r.URL.Query().Get("format") == "json" {
+		w.Header().Set("Content-Type", "application/json")
+		jsonData := map[string]interface{}{
+			"task_id":  task.ID,
+			"total":    totalCodes,
+			"scanned":  scannedCodes,
+			"valid":    validCodes,
+			"progress": progress,
+		}
+
+		jsonBytes, _ := json.Marshal(jsonData)
+		w.Write(jsonBytes)
 		return
 	}
 
-	// Парсим файл для получения задания
-	task, _, err := filemanager.ParseMarkFile(taskFilePath)
-	if err != nil {
-		http.Error(w, "Ошибка при парсинге файла задания", http.StatusInternalServerError)
-		return
-	}
-
+	// Иначе рендерим HTML-шаблон
 	data := map[string]interface{}{
-		"Title": "Активное задание",
-		"Task":  task,
+		"Title":        "Активное задание",
+		"Task":         task,
+		"TotalCodes":   totalCodes,
+		"ScannedCodes": scannedCodes,
+		"ValidCodes":   validCodes,
+		"Progress":     progress,
 	}
 
 	s.render(w, "active_task", data)
 }
 
-// handleFinishTask обрабатывает запрос на завершение задания
-func (s *Server) handleFinishTask(w http.ResponseWriter, r *http.Request) {
+// handleScanCode обрабатывает сканирование кода
+func (s *Server) handleScanCode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Проверяем, есть ли активное задание
-	if s.activeTaskID == "" {
-		http.Redirect(w, r, "/tasks", http.StatusSeeOther)
+	// Получаем данные формы
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Ошибка при парсинге формы", http.StatusBadRequest)
 		return
 	}
 
-	// Находим файл активного задания в директории processing
-	processingFiles, err := os.ReadDir(s.config.ProcessingDir)
+	codeValue := r.FormValue("code")
+	if codeValue == "" {
+		http.Error(w, "Код не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
+	// Получаем ID активного задания
+	activeTaskID, err := s.db.GetActiveTask()
+	if err != nil || activeTaskID == "" {
+		http.Error(w, "Нет активного задания", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем, существует ли код для этого задания и не отсканирован ли он уже
+	codes, err := s.db.GetCodesByTaskID(activeTaskID)
 	if err != nil {
-		http.Error(w, "Ошибка при чтении директории обработки", http.StatusInternalServerError)
+		http.Error(w, "Ошибка при получении кодов: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	var taskFilePath string
-	for _, file := range processingFiles {
-		if file.IsDir() {
-			continue
-		}
-
-		// Проверяем, что это файл OUT_MARK_*.xml
-		fileName := file.Name()
-		if strings.HasPrefix(fileName, "OUT_MARK_") && strings.HasSuffix(fileName, ".xml") {
-			// Парсим файл для получения ID
-			filePath := filepath.Join(s.config.ProcessingDir, fileName)
-			tempTask, _, err := filemanager.ParseMarkFile(filePath)
-			if err != nil {
-				continue
+	codeFound := false
+	codeAlreadyScanned := false
+	for _, code := range codes {
+		if code.Value == codeValue {
+			codeFound = true
+			if code.Scanned {
+				codeAlreadyScanned = true
 			}
-
-			if tempTask.ID == s.activeTaskID {
-				taskFilePath = filePath
-				break
-			}
+			break
 		}
 	}
 
-	if taskFilePath != "" {
-		// Перемещаем файл в архив
-		if err := filemanager.MoveToArchive(taskFilePath, s.config.ArchiveDir); err != nil {
-			http.Error(w, "Ошибка при архивации файла: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+	if !codeFound {
+		// Код не найден в задании
+		http.Error(w, "Код не найден в текущем задании", http.StatusBadRequest)
+		return
 	}
 
-	// Сбрасываем активное задание
-	s.activeTaskID = ""
+	if codeAlreadyScanned {
+		// Код уже отсканирован
+		http.Error(w, "Код уже отсканирован", http.StatusBadRequest)
+		return
+	}
 
+	// Обновляем статус кода
+	if err := s.db.UpdateCodeStatus(activeTaskID, codeValue, true, true, ""); err != nil {
+		http.Error(w, "Ошибка при обновлении статуса кода: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Обновляем статистику задания
+	if err := s.db.UpdateTaskStatistics(activeTaskID); err != nil {
+		log.Printf("Ошибка при обновлении статистики: %v", err)
+	}
+
+	// Возвращаем JSON с результатом
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success": true, "message": "Код успешно отсканирован"}`))
+}
+
+// handleCompleteTask обрабатывает завершение задания
+func (s *Server) handleCompleteTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Получаем ID активного задания
+	activeTaskID, err := s.db.GetActiveTask()
+	if err != nil || activeTaskID == "" {
+		http.Error(w, "Нет активного задания", http.StatusBadRequest)
+		return
+	}
+
+	// Получаем информацию о задании
+	task, err := s.db.GetTaskByID(activeTaskID)
+	if err != nil {
+		http.Error(w, "Ошибка при получении задания: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Получаем отсканированные коды
+	scannedCodes, err := s.db.GetScannedCodesByTaskID(activeTaskID)
+	if err != nil {
+		http.Error(w, "Ошибка при получении кодов: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Генерируем файл с результатами
+	resultFilePath, err := filemanager.GenerateSerializationFile(task, scannedCodes, s.config.OutgoingDir)
+	if err != nil {
+		http.Error(w, "Ошибка при создании файла результатов: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Перемещаем исходный файл в архив
+	if err := filemanager.MoveToArchive(task.FilePath, s.config.ArchiveDir); err != nil {
+		log.Printf("Ошибка при перемещении файла в архив: %v", err)
+	}
+
+	// Обновляем статус задания
+	if err := s.db.UpdateTaskStatus(activeTaskID, models.TaskStatusCompleted); err != nil {
+		http.Error(w, "Ошибка при обновлении статуса задания: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Удаляем активное задание
+	if err := s.db.ClearActiveTask(); err != nil {
+		log.Printf("Ошибка при удалении активного задания: %v", err)
+	}
+
+	log.Printf("Задание %s завершено, создан файл результатов: %s", activeTaskID, resultFilePath)
+
+	// Перенаправляем на список заданий
 	http.Redirect(w, r, "/tasks", http.StatusSeeOther)
 }
